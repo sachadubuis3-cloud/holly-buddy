@@ -7,7 +7,8 @@ type Mode='login'|'signup'|'recovery-request'|'recovery'; type Org={id:string;na
 const labels:Record<string,string>={owner:'Owner',admin:'Admin',member:'Member',viewer:'Viewer'};
 function App(){
  const inviteToken=new URLSearchParams(window.location.search).get('invite');
- const [session,setSession]=useState<any>(null),[org,setOrg]=useState<Org|null>(null),[mode,setMode]=useState<Mode>('login'),[view,setView]=useState<'dashboard'|'users'>('dashboard');
+ const recoveryHash=new URLSearchParams(window.location.hash.replace(/^#/, '')).get('type')==='recovery';
+ const [session,setSession]=useState<any>(null),[org,setOrg]=useState<Org|null>(null),[mode,setMode]=useState<Mode>(recoveryHash?'recovery':'login'),[view,setView]=useState<'dashboard'|'users'>('dashboard');
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[name,setName]=useState(''),[newPassword,setNewPassword]=useState(''),[orgName,setOrgName]=useState('');
  const [members,setMembers]=useState<Member[]>([]),[invites,setInvites]=useState<Invite[]>([]),[inviteEmail,setInviteEmail]=useState(''),[inviteRole,setInviteRole]=useState('member');
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[accepting,setAccepting]=useState(false),[accepted,setAccepted]=useState(false),[status,setStatus]=useState('checking');
