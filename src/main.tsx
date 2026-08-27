@@ -5,12 +5,16 @@ import { isSupabaseConfigured, supabase } from './lib/supabase';
 
 type Mode = 'login' | 'signup';
 
+type Organization = { id: string; name: string; type: string; status: string };
+
 function App() {
   const [session, setSession] = useState<any>(null);
+  const [organization, setOrganization] = useState<Organization | null>(null);
   const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [organizationName, setOrganizationName] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<'checking' | 'connected' | 'error' | 'not-configured'>('checking');
@@ -28,10 +32,27 @@ function App() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+      if (!nextSession) setOrganization(null);
     });
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!supabase || !session?.user?.id) return;
+
+    supabase
+      .from('memberships')
+      .select('organization_id, organizations(id, name, type, status)')
+      .eq('user_id', session.user.id)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        const org = (data as any)?.organizations;
+        setOrganization(org ?? null);
+      });
+  }, [session]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -58,6 +79,42 @@ function App() {
     setBusy(false);
   };
 
+  const createOrganization = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!supabase) return;
+
+    setBusy(true);
+    setMessage('');
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      setMessage('Session expirée. Reconnecte-toi.');
+      setBusy(false);
+      return;
+    }
+
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-organization`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ name: organizationName, type: 'host' }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(payload.error || 'Impossible de créer l’organisation.');
+    } else {
+      setOrganization(payload.organization);
+      setOrganizationName('');
+      setMessage('Organisation créée. Tu es maintenant propriétaire.');
+    }
+
+    setBusy(false);
+  };
+
   const signOut = async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
@@ -77,7 +134,28 @@ function App() {
             <h1>Bienvenue 👋</h1>
             <p className="muted">Tu es connecté avec {session.user.email}.</p>
           </div>
+
           <div className="status status-connected"><span className="status-dot" /> Supabase connected</div>
+
+          {organization ? (
+            <div className="organization-panel">
+              <p className="eyebrow">Organisation</p>
+              <h2>{organization.name}</h2>
+              <p className="muted">Type : {organization.type} · Statut : {organization.status}</p>
+              <p className="success-text">Tu es propriétaire de cette organisation.</p>
+            </div>
+          ) : (
+            <div className="organization-panel">
+              <h2>Créer ton organisation</h2>
+              <p className="muted">Cette organisation sera ton premier tenant Holly Buddy.</p>
+              <form onSubmit={createOrganization}>
+                <label>Nom de l’organisation<input value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} placeholder="Mon organisation" minLength={2} maxLength={120} required /></label>
+                <button className="button" disabled={busy}>{busy ? 'Création…' : 'Créer l’organisation'}</button>
+              </form>
+            </div>
+          )}
+
+          {message && <div className="message" role="status">{message}</div>}
           <button className="button secondary" onClick={signOut}>Se déconnecter</button>
         </section>
       </main>
