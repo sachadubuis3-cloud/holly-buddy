@@ -12,7 +12,7 @@ function App() {
       return;
     }
 
-    supabase.from('organizations').select('id', { count: 'exact', head: true }).then(({ error }) => {
+    supabase.auth.getSession().then(({ error }) => {
       setStatus(error ? 'error' : 'connected');
     });
   }, []);
