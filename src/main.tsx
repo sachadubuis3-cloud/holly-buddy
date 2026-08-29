@@ -3,9 +3,11 @@ import {createRoot} from 'react-dom/client';
 import './styles.css';
 import {isSupabaseConfigured,supabase} from './lib/supabase';
 import HostDashboard from './host/HostDashboard';
+import PublicProperty from './client/PublicProperty';
 
 type Mode='login'|'signup'|'recovery-request'|'recovery'; type Org={id:string;name:string;type:string;status:string};
 function App(){
+ const publicMatch=window.location.pathname.match(/^\/p\/([^/]+)\/?$/); if(publicMatch)return <PublicProperty token={publicMatch[1]}/>;
  const recoveryHash=new URLSearchParams(window.location.hash.replace(/^#/, '')).get('type')==='recovery';
  const [session,setSession]=useState<any>(null),[org,setOrg]=useState<Org|null>(null),[mode,setMode]=useState<Mode>(recoveryHash?'recovery':'login');
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[name,setName]=useState(''),[newPassword,setNewPassword]=useState(''),[orgName,setOrgName]=useState('');
