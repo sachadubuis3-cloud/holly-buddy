@@ -5,26 +5,37 @@ type Property={id:string;name:string;description:string|null;city:string|null;co
 type Image={storage_path:string;alt_text:string|null;sort_order:number;is_primary:boolean};
 type GuideSection={id:string;section_type:string;title:string;content:string;sort_order:number;is_enabled:boolean};
 type Service={id:string;name:string;description:string|null;category:string;duration_minutes:number|null;schedule_text:string|null;mode:string;capacity:number|null;location_text:string|null};
-type PublicPayload={property:Property;images:Image[];sections:GuideSection[];services:Service[]};
 
 export default function PublicProperty({token}:{token:string}){
- const [data,setData]=useState<PublicPayload|null>(null);
+ const [p,setP]=useState<Property|null>(null);
+ const [imgs,setImgs]=useState<Image[]>([]);
+ const [sections,setSections]=useState<GuideSection[]>([]);
+ const [services,setServices]=useState<Service[]>([]);
  const [loading,setLoading]=useState(true);
- const [error,setError]=useState('');
  useEffect(()=>{
   const client=supabase;
   if(!client){setLoading(false);return}
-  client.rpc('get_public_property',{property_public_token:token}).then(({data:result,error:rpcError})=>{
-   if(rpcError){setError(rpcError.message);setData(null)}
-   else if(result){setData(result as PublicPayload)}
-   else setData(null);
+  client.from('properties').select('id,name,description,city,country,max_guests,bedrooms,bathrooms,status').eq('public_token',token).eq('status','active').maybeSingle().then(async({data})=>{
+   if(data){
+    setP(data as Property);
+    const [imagesResult,guideResult,linksResult]=await Promise.all([
+     client.from('property_images').select('storage_path,alt_text,sort_order,is_primary').eq('property_id',data.id).order('sort_order'),
+     client.from('guide_sections').select('id,section_type,title,content,sort_order,is_enabled').eq('property_id',data.id).eq('is_enabled',true).order('sort_order'),
+     client.from('property_services').select('service_id').eq('property_id',data.id)
+    ]);
+    setImgs((imagesResult.data as Image[])??[]);
+    setSections((guideResult.data as GuideSection[])??[]);
+    const serviceIds=(linksResult.data??[]).map((x:any)=>x.service_id).filter(Boolean);
+    if(serviceIds.length){
+     const serviceResult=await client.from('services').select('id,name,description,category,duration_minutes,schedule_text,mode,capacity,location_text').in('id',serviceIds).eq('status','active').order('name');
+     setServices((serviceResult.data as Service[])??[]);
+    }else setServices([]);
+   }
    setLoading(false);
   });
  },[token]);
  if(loading)return <main className="public-property"><div className="public-card">Chargement…</div></main>;
- if(error)return <main className="public-property"><div className="public-card"><h1>Impossible de charger le logement</h1><p>Une erreur est survenue lors de l’accès à ce guide.</p></div></main>;
- if(!data?.property)return <main className="public-property"><div className="public-card"><h1>Logement introuvable</h1><p>Ce lien n’est plus disponible.</p></div></main>;
- const {property:p,images:imgs,sections,services}=data;
+ if(!p)return <main className="public-property"><div className="public-card"><h1>Logement introuvable</h1><p>Ce lien n’est plus disponible.</p></div></main>;
  const image=(x:string)=>supabase?.storage.from('public-assets').getPublicUrl(x).data.publicUrl||'';
  return <main className="public-property"><div className="public-inner">
   <header className="public-hero"><p>HOLLY BUDDY</p><h1>{p.name}</h1><span>{[p.city,p.country].filter(Boolean).join(', ')}</span></header>
