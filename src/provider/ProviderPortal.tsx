@@ -1,5 +1,6 @@
 import {useEffect,useState} from 'react';
 import {supabase} from '../lib/supabase';
+import ProviderServices from './ProviderServices';
 
 type Provider={id:string;profile_code:string;business_name:string;public_name:string|null;description:string|null;email:string|null;phone:string|null;website:string|null;city:string|null;region:string|null;country:string|null;status:string};
 type ConnectionStatus='pending'|'connected'|'suspended'|'disconnected';
@@ -43,7 +44,8 @@ export default function ProviderPortal({provider,onSignOut,onSwitchToHost}:Props
     {loading?<div className="provider-empty"><span>Chargement des demandes…</span></div>:connections.length===0?<div className="provider-empty"><strong>Aucune demande à afficher</strong><span>Les demandes envoyées par les hôtes apparaîtront ici.</span></div>:<div className="provider-connections">{connections.map(c=><div className="provider-connection" key={c.id}><div><strong>Organisation hôte</strong><span>{c.host_organization_id}</span><small>{statusLabel[c.status]} · {new Date(c.created_at).toLocaleDateString('fr-CH')}</small></div>{c.status==='pending'&&<div className="provider-actions"><button type="button" onClick={()=>void updateConnection(c.id,'connected')} disabled={updating===c.id}>{updating===c.id?'…':'Accepter'}</button><button type="button" onClick={()=>void updateConnection(c.id,'disconnected')} disabled={updating===c.id}>Refuser</button></div>}</div>)}</div>}
     {message&&<div className="provider-message">{message}</div>}
    </section>
-   <section className="provider-grid"><div className="provider-card"><p className="provider-eyebrow">Catalogue</p><h2>Services</h2><p>Les prestations proposées aux hôtes seront configurées ici.</p><button disabled>Gérer les services</button></div><div className="provider-card"><p className="provider-eyebrow">Activité</p><h2>Réservations</h2><p>Les réservations issues des hôtes connectés apparaîtront ici.</p><button disabled>Voir les réservations</button></div></section>
+   <ProviderServices providerId={provider.id}/>
+   <section className="provider-grid"><div className="provider-card"><p className="provider-eyebrow">Activité</p><h2>Réservations</h2><p>Les réservations issues des hôtes connectés apparaîtront ici.</p><button disabled>Voir les réservations</button></div></section>
   </div>
  </main>;
 }
